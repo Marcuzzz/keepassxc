@@ -72,7 +72,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: KeePassXC-${{ env.VERSION }}-x86_64
+          name: KeePassXC-${{ env.VERSION }}-x86_64-AppImage
           path: KeePassXC-*-x86_64.AppImage*
 
   macos:
@@ -147,7 +147,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: KeePassXC-${{ env.VERSION }}-${{ matrix.arch }}
+          name: KeePassXC-${{ env.VERSION }}-${{ matrix.arch }}-dmg
           path: KeePassXC-*-${{ matrix.arch }}.dmg*
 
   release:
