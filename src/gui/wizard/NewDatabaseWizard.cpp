@@ -40,7 +40,7 @@ NewDatabaseWizard::NewDatabaseWizard(QWidget* parent)
     m_pages << new NewDatabaseWizardPageMetaData()
             << new NewDatabaseWizardPageEncryption()
             << new NewDatabaseWizardPageDatabaseKey()
-            << m_storagePage;
+            << m_storagePage.data();
     // clang-format on
 
     for (const auto& page : asConst(m_pages)) {
