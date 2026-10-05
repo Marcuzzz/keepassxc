@@ -1,5 +1,6 @@
 # Fork: builds a Linux AppImage and macOS DMGs of KeePassXC with KeePass Server sync and
-# publishes them as a GitHub Release when a tag ending in -kps<n> is pushed (e.g. 2.8.0-beta1-kps1).
+# publishes them as a GitHub Release when a tag ending in -kps<n> is pushed (e.g. 2.8.0-beta1-kps1),
+# then deploys the install page (deploy/index.html) to GitHub Pages.
 name: KeePass Server builds
 
 on:
@@ -10,6 +11,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   appimage:
@@ -155,6 +158,19 @@ jobs:
     needs: [appimage, macos]
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src
+
+      - name: Assemble Pages site
+        run: |
+          mkdir -p _site
+          cp src/deploy/index.html _site/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
@@ -172,3 +188,14 @@ jobs:
           **Linux x86_64 AppImage**, built on Ubuntu 24.04 (needs Ubuntu 24.04 or newer): \`chmod +x KeePassXC-*.AppImage && ./KeePassXC-*.AppImage\`
 
           **macOS DMG**: arm64 (Apple Silicon, macOS 14+) and x86_64 (Intel, macOS 15+). The app is not notarized: after copying it to Applications, run \`xattr -dr com.apple.quarantine /Applications/KeePassXC.app\` (or right-click > Open). Touch ID quick unlock is unavailable in this build."
+
+  deploy-pages:
+    if: github.ref_type == 'tag'
+    needs: release
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

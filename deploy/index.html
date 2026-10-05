@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>KeePassXC with KeePass Server — Install</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #111; color: #eee;
+      max-width: 640px; margin: 4rem auto; padding: 0 1.5rem;
+      line-height: 1.55;
+    }
+    a.install {
+      display: inline-block; padding: 0.9rem 1.6rem;
+      background: linear-gradient(135deg, #5B8CF0, #F064A0);
+      color: white; text-decoration: none;
+      border-radius: 8px; font-weight: 600;
+      margin: 0.5rem 0.5rem 0.5rem 0;
+    }
+    a.install.secondary {
+      background: #222;
+      color: #ddd;
+    }
+    code { background: #222; padding: 0.15rem 0.4rem; border-radius: 4px; }
+    pre { background: #222; padding: 0.7rem 0.9rem; border-radius: 6px; overflow-x: auto; }
+    pre code { padding: 0; }
+    h1 { margin-bottom: 0.2rem; }
+    .sub { color: #999; margin-top: 0; }
+    .version { color: #777; font-size: 0.9rem; }
+    ul { padding-left: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>KeePassXC with KeePass Server</h1>
+  <p class="sub">Personal fork of <a href="https://github.com/keepassxreboot/keepassxc" style="color:#aaa;">KeePassXC</a> that syncs databases with a self-hosted <a href="https://github.com/Marcuzzz/keepass-server" style="color:#aaa;">KeePass Server</a>. Not an official KeePassXC release.</p>
+
+  <div>
+    <a class="install" id="linux" href="https://github.com/Marcuzzz/keepassxc/releases">Linux (AppImage)</a>
+    <a class="install" id="mac-arm64" href="https://github.com/Marcuzzz/keepassxc/releases">macOS (Apple Silicon)</a>
+    <a class="install" id="mac-x86_64" href="https://github.com/Marcuzzz/keepassxc/releases">macOS (Intel)</a>
+  </div>
+  <a class="install secondary" href="https://github.com/Marcuzzz/keepassxc/releases">All releases</a>
+  <p class="version" id="version"></p>
+
+  <h2>Linux</h2>
+  <p>x86_64 AppImage, built on Ubuntu 24.04 (needs Ubuntu 24.04 or newer). Make it executable and run it:</p>
+  <pre><code>chmod +x KeePassXC-*.AppImage
+./KeePassXC-*.AppImage</code></pre>
+
+  <h2>macOS</h2>
+  <p>Apple Silicon needs macOS 14 or newer, Intel needs macOS 15 or newer. Open the DMG and drag KeePassXC to Applications. This replaces an installed official KeePassXC.</p>
+  <p>The app is not notarized, so macOS blocks it on first launch. Allow it once with:</p>
+  <pre><code>xattr -dr com.apple.quarantine /Applications/KeePassXC.app</code></pre>
+  <p>or right-click the app and choose <em>Open</em>. Touch ID quick unlock is not available in this build.</p>
+
+  <h2>Connecting to your server</h2>
+  <p>Create a new database and choose KeePass Server as its location (<em>Test connection</em> checks the URL and login), or open an existing database from the server. The database then syncs on unlock and save, can work offline, and keeps conflict copies when changes can't be merged.</p>
+
+  <h2>Updates</h2>
+  <p>This build has update checks turned off, since they would point to official KeePassXC. New releases are published to the <a href="https://github.com/Marcuzzz/keepassxc/releases">Releases page</a>, and the buttons above always point to the newest one.</p>
+
+  <p style="color:#666; font-size: 0.85rem; margin-top: 3rem;">
+    Licensed under GPL-3.0. <a href="https://github.com/Marcuzzz/keepassxc" style="color:#888;">Source on GitHub</a>
+  </p>
+
+  <script>
+    // Releases are pre-releases with the version in the asset names, so /releases/latest/download
+    // can't be used. Point the buttons at the newest KeePass Server release instead.
+    fetch("https://api.github.com/repos/Marcuzzz/keepassxc/releases?per_page=20")
+      .then((r) => r.json())
+      .then((releases) => {
+        const release = releases.find((r) => !r.draft && r.tag_name.includes("-kps"));
+        if (!release) return;
+        const assetUrl = (suffix) => release.assets.find((a) => a.name.endsWith(suffix))?.browser_download_url;
+        const links = { linux: "-x86_64.AppImage", "mac-arm64": "-arm64.dmg", "mac-x86_64": "-x86_64.dmg" };
+        for (const [id, suffix] of Object.entries(links)) {
+          const url = assetUrl(suffix);
+          if (url) document.getElementById(id).href = url;
+        }
+        document.getElementById("version").textContent = "Latest: " + release.tag_name;
+      })
+      .catch(() => {});
+  </script>
+</body>
+</html>
