@@ -39,6 +39,7 @@ signals:
     void newDatabase();
     void openDatabase();
     void openDatabaseFile(QString);
+    void openFromServer();
     void importFile();
 
 protected:

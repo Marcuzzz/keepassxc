@@ -64,7 +64,10 @@ public slots:
     void updateTabName(int index = -1);
 
     DatabaseWidget* newDatabase();
+    /** New database; preferServer preselects KeePass Server, serverPath creates it in an existing empty vault. */
+    DatabaseWidget* newDatabase(bool preferServer, const QString& serverPath = {});
     void openDatabase();
+    void openFromServer();
     void mergeDatabase();
     void importFile();
     bool saveDatabase(int index = -1);
@@ -117,7 +120,7 @@ private slots:
     void updateLastDatabases();
 
 private:
-    QSharedPointer<Database> execNewDatabaseWizard();
+    QSharedPointer<Database> execNewDatabaseWizard(QString* serverVaultPath = nullptr, bool preferServer = false);
     void updateLastDatabases(const QSharedPointer<Database>& database);
     bool warnOnExport();
     void displayUnlockDialog();

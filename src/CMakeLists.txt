@@ -183,6 +183,12 @@ set(gui_SOURCES
         gui/dbsettings/DatabaseSettingsWidgetEncryption.cpp
         gui/dbsettings/DatabaseSettingsWidgetDatabaseKey.cpp
         gui/remote/DatabaseSettingsWidgetRemote.cpp
+        gui/remote/KpsClient.cpp
+        gui/remote/KpsConnectionWidget.cpp
+        gui/remote/KpsDatabaseSync.cpp
+        gui/remote/KpsServerDialog.cpp
+        gui/remote/KpsSyncEngine.cpp
+        gui/remote/KpsVault.cpp
         gui/remote/RemoteHandler.cpp
         gui/remote/RemoteProcess.cpp
         gui/remote/RemoteSettings.cpp
@@ -210,6 +216,7 @@ set(gui_SOURCES
         gui/wizard/NewDatabaseWizardPageMetaData.cpp
         gui/wizard/NewDatabaseWizardPageEncryption.cpp
         gui/wizard/NewDatabaseWizardPageDatabaseKey.cpp
+        gui/wizard/NewDatabaseWizardPageStorage.cpp
         quickunlock/QuickUnlockInterface.cpp
         ../share/icons/icons.qrc
         ../share/wizard/wizard.qrc)

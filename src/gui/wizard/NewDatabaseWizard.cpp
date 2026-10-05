@@ -19,6 +19,7 @@
 #include "NewDatabaseWizardPageDatabaseKey.h"
 #include "NewDatabaseWizardPageEncryption.h"
 #include "NewDatabaseWizardPageMetaData.h"
+#include "NewDatabaseWizardPageStorage.h"
 
 #include "core/Global.h"
 #include "core/Group.h"
@@ -35,9 +36,11 @@ NewDatabaseWizard::NewDatabaseWizard(QWidget* parent)
     setOption(QWizard::WizardOption::NoDefaultButton, false); // Needed for macOS
 
     // clang-format off
+    m_storagePage = new NewDatabaseWizardPageStorage();
     m_pages << new NewDatabaseWizardPageMetaData()
             << new NewDatabaseWizardPageEncryption()
-            << new NewDatabaseWizardPageDatabaseKey();
+            << new NewDatabaseWizardPageDatabaseKey()
+            << m_storagePage;
     // clang-format on
 
     for (const auto& page : asConst(m_pages)) {
@@ -75,6 +78,27 @@ bool NewDatabaseWizard::validateCurrentPage()
  *
  * @return the configured database
  */
+void NewDatabaseWizard::setStorageChoice(bool enabled, bool preferServer)
+{
+    if (!m_storagePage) {
+        return;
+    }
+    if (enabled) {
+        m_storagePage->storageWidget()->setPreferServer(preferServer);
+        return;
+    }
+    // The storage page is always the last one
+    const auto storageId = m_pages.indexOf(m_storagePage);
+    removePage(storageId);
+    m_pages.removeAt(storageId);
+    delete m_storagePage;
+}
+
+QString NewDatabaseWizard::serverVaultPath() const
+{
+    return m_storagePage ? m_storagePage->storageWidget()->serverVaultPath() : QString();
+}
+
 QSharedPointer<Database> NewDatabaseWizard::takeDatabase()
 {
     auto tmpPointer = m_db;

@@ -136,6 +136,13 @@
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="buttonOpenFromServer">
+       <property name="text">
+        <string>KeePass Server</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="buttonImport">
        <property name="text">
         <string>Import File</string>

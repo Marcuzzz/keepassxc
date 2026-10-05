@@ -127,6 +127,7 @@ private slots:
     void togglePasswordGenerator(bool enabled);
     void switchToNewDatabase();
     void switchToOpenDatabase();
+    void switchToOpenFromServer();
     void switchToDatabaseFile(const QString& file);
     void updateRemoteSyncMenuEntries();
     void databaseStatusChanged(DatabaseWidget* dbWidget);

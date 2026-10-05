@@ -32,6 +32,9 @@
 #include "gui/FileDialog.h"
 #include "gui/MessageBox.h"
 #include "gui/export/ExportDialog.h"
+#include "gui/remote/KpsDatabaseSync.h"
+#include "gui/remote/KpsServerDialog.h"
+#include "gui/remote/KpsVault.h"
 #ifdef Q_OS_MACOS
 #include "gui/osutils/macutils/MacUtils.h"
 #endif
@@ -92,13 +95,17 @@ void DatabaseTabWidget::toggleTabbar()
  *
  * @return pointer to the configured new database, nullptr on failure
  */
-QSharedPointer<Database> DatabaseTabWidget::execNewDatabaseWizard()
+QSharedPointer<Database> DatabaseTabWidget::execNewDatabaseWizard(QString* serverVaultPath, bool preferServer)
 {
     // use QScopedPointer to ensure deletion after scope ends, but still parent
     // it to this to make it modal and allow easier access in unit tests
     QScopedPointer<NewDatabaseWizard> wizard(new NewDatabaseWizard(this));
+    wizard->setStorageChoice(serverVaultPath != nullptr, preferServer);
     if (!wizard->exec()) {
         return {};
+    }
+    if (serverVaultPath) {
+        *serverVaultPath = wizard->serverVaultPath();
     }
 
     auto db = wizard->takeDatabase();
@@ -122,15 +129,54 @@ QSharedPointer<Database> DatabaseTabWidget::execNewDatabaseWizard()
 
 DatabaseWidget* DatabaseTabWidget::newDatabase()
 {
-    auto db = execNewDatabaseWizard();
+    return newDatabase(false);
+}
+
+DatabaseWidget* DatabaseTabWidget::newDatabase(bool preferServer, const QString& serverPath)
+{
+    QString vaultPath = serverPath;
+    auto db = serverPath.isEmpty() ? execNewDatabaseWizard(&vaultPath, preferServer) : execNewDatabaseWizard();
     if (!db) {
         return nullptr;
+    }
+
+    if (!vaultPath.isEmpty()) {
+        // KeePass Server: save the local copy now, KpsDatabaseSync uploads it
+        QString error;
+        if (!db->saveAs(vaultPath, Database::Atomic, {}, &error)) {
+            MessageBox::critical(this,
+                                 tr("Database creation error"),
+                                 tr("Writing the database failed: %1").arg(error),
+                                 MessageBox::Ok,
+                                 MessageBox::Ok);
+            return nullptr;
+        }
+        if (auto vault = KpsVault::fromPath(vaultPath)) {
+            vault->state().dirty = true;
+            vault->save();
+        }
+        auto dbWidget = new DatabaseWidget(db, this);
+        addDatabaseTab(dbWidget);
+        return dbWidget;
     }
 
     auto dbWidget = new DatabaseWidget(db, this);
     addDatabaseTab(dbWidget);
     db->markAsModified();
     return dbWidget;
+}
+
+void DatabaseTabWidget::openFromServer()
+{
+    KpsServerDialog dialog(this);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    if (dialog.action() == KpsServerDialog::Action::Open) {
+        addDatabaseTab(dialog.path());
+    } else if (dialog.action() == KpsServerDialog::Action::NewDatabase) {
+        newDatabase(true, dialog.path());
+    }
 }
 
 void DatabaseTabWidget::openDatabase()
@@ -224,6 +270,11 @@ void DatabaseTabWidget::lockAndSwitchToFirstUnlockedDatabase(int index)
 void DatabaseTabWidget::addDatabaseTab(DatabaseWidget* dbWidget, bool inBackground)
 {
     Q_ASSERT(dbWidget->database());
+
+    // Keeps KeePass Server databases in sync (no-op for other databases)
+    if (!KpsDatabaseSync::forWidget(dbWidget)) {
+        new KpsDatabaseSync(dbWidget);
+    }
 
     // emit before index change
     emit databaseOpened(dbWidget);

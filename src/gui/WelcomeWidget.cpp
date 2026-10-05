@@ -41,6 +41,8 @@ WelcomeWidget::WelcomeWidget(QWidget* parent)
     m_ui->buttonNewDatabase->setStyleSheet("text-align:center;");
     m_ui->buttonOpenDatabase->setIcon(icons()->icon("document-open"));
     m_ui->buttonOpenDatabase->setStyleSheet("text-align:center;");
+    m_ui->buttonOpenFromServer->setIcon(icons()->icon("remote-sync"));
+    m_ui->buttonOpenFromServer->setStyleSheet("text-align:center;");
     m_ui->buttonImport->setIcon(icons()->icon("document-import"));
     m_ui->buttonImport->setStyleSheet("text-align:center;");
 
@@ -48,6 +50,7 @@ WelcomeWidget::WelcomeWidget(QWidget* parent)
 
     connect(m_ui->buttonNewDatabase, SIGNAL(clicked()), SIGNAL(newDatabase()));
     connect(m_ui->buttonOpenDatabase, SIGNAL(clicked()), SIGNAL(openDatabase()));
+    connect(m_ui->buttonOpenFromServer, SIGNAL(clicked()), SIGNAL(openFromServer()));
     connect(m_ui->buttonImport, SIGNAL(clicked()), SIGNAL(importFile()));
     connect(m_ui->recentListWidget,
             SIGNAL(itemActivated(QListWidgetItem*)),

@@ -49,6 +49,7 @@
 #include "gui/ShortcutSettingsPage.h"
 #include "gui/entry/EntryView.h"
 #include "gui/osutils/OSUtils.h"
+#include "gui/remote/KpsDatabaseSync.h"
 #include "gui/remote/RemoteSettings.h"
 #include "keeshare/KeeShare.h"
 #include "keeshare/SettingsPageKeeShare.h"
@@ -164,6 +165,35 @@ MainWindow::MainWindow()
     m_entryNewContextMenu->addAction(m_ui->actionEntryNew);
 
     connect(m_ui->menuRemoteSync, &QMenu::aboutToShow, this, &MainWindow::updateRemoteSyncMenuEntries);
+
+    // KeePass Server: open/create databases on a keepass-server, sync and work offline
+    auto kpsMenu = new QMenu(tr("KeePass Server"), this);
+    kpsMenu->setIcon(icons()->icon("remote-sync"));
+    m_ui->menuFile->insertMenu(m_ui->actionImport, kpsMenu);
+    connect(kpsMenu, &QMenu::aboutToShow, this, [this, kpsMenu] {
+        kpsMenu->clear();
+        connect(kpsMenu->addAction(tr("Open from KeePass Server…")), &QAction::triggered, this, [this] {
+            m_ui->tabWidget->openFromServer();
+            switchToDatabases();
+        });
+        connect(kpsMenu->addAction(tr("New Database on KeePass Server…")), &QAction::triggered, this, [this] {
+            m_ui->tabWidget->newDatabase(true);
+            switchToDatabases();
+        });
+        auto dbWidget = m_ui->tabWidget->currentDatabaseWidget();
+        auto sync = KpsDatabaseSync::forWidget(dbWidget);
+        if (!sync || !sync->isServerDatabase()) {
+            return;
+        }
+        kpsMenu->addSeparator();
+        auto syncAction = kpsMenu->addAction(tr("Sync Now"));
+        syncAction->setEnabled(!dbWidget->isLocked());
+        connect(syncAction, &QAction::triggered, sync, [sync] { sync->syncNow(true); });
+        auto offlineAction = kpsMenu->addAction(tr("Work Offline"));
+        offlineAction->setCheckable(true);
+        offlineAction->setChecked(sync->workOffline());
+        connect(offlineAction, &QAction::toggled, sync, &KpsDatabaseSync::setWorkOffline);
+    });
 
     // Build Entry Level Auto-Type menu
     auto autotypeMenu = new QMenu({}, this);
@@ -530,6 +560,7 @@ MainWindow::MainWindow()
 
     connect(m_ui->welcomeWidget, SIGNAL(newDatabase()), SLOT(switchToNewDatabase()));
     connect(m_ui->welcomeWidget, SIGNAL(openDatabase()), SLOT(switchToOpenDatabase()));
+    connect(m_ui->welcomeWidget, SIGNAL(openFromServer()), SLOT(switchToOpenFromServer()));
     connect(m_ui->welcomeWidget, SIGNAL(openDatabaseFile(QString)), SLOT(switchToDatabaseFile(QString)));
     connect(m_ui->welcomeWidget, SIGNAL(importFile()), m_ui->tabWidget, SLOT(importFile()));
 
@@ -1204,6 +1235,12 @@ void MainWindow::switchToNewDatabase()
 void MainWindow::switchToOpenDatabase()
 {
     m_ui->tabWidget->openDatabase();
+    switchToDatabases();
+}
+
+void MainWindow::switchToOpenFromServer()
+{
+    m_ui->tabWidget->openFromServer();
     switchToDatabases();
 }
 

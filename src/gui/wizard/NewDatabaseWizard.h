@@ -23,6 +23,7 @@
 
 class Database;
 class NewDatabaseWizardPage;
+class NewDatabaseWizardPageStorage;
 
 /**
  * Setup wizard for creating a new database.
@@ -38,12 +39,18 @@ public:
     QSharedPointer<Database> takeDatabase();
     bool validateCurrentPage() override;
 
+    /** Offer "store on KeePass Server" (last page); preferServer preselects it. */
+    void setStorageChoice(bool enabled, bool preferServer = false);
+    /** Local copy of the vault created on KeePass Server, empty for a file on this computer. */
+    QString serverVaultPath() const;
+
 protected:
     void initializePage(int id) override;
 
 private:
     QSharedPointer<Database> m_db;
     QList<QPointer<NewDatabaseWizardPage>> m_pages;
+    QPointer<NewDatabaseWizardPageStorage> m_storagePage;
 };
 
 #endif // KEEPASSXC_NEWDATABASEWIZARD_H
