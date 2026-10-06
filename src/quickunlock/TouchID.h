@@ -42,8 +42,11 @@ private:
 
     static void deleteKeyEntry(const QString& accountName);
     static QString databaseKeyName(const QUuid& dbUuid);
+    static bool authenticate(const QString& reason, bool& canceled);
 
     QHash<QUuid, QByteArray> m_encryptedMasterKeys;
+    // AES key and IV of databases whose key could not be stored in the KeyChain (ad-hoc signed builds)
+    QHash<QUuid, QByteArray> m_inMemoryKeys;
 };
 
 #endif // KEEPASSXC_TOUCHID_H

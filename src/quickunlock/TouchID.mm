@@ -103,6 +103,45 @@ QString TouchID::errorString() const
 void TouchID::reset()
 {
     m_encryptedMasterKeys.clear();
+    for (auto& key : m_inMemoryKeys) {
+        Botan::secure_scrub_memory(key.data(), key.size());
+    }
+    m_inMemoryKeys.clear();
+}
+
+/**
+ * Asks for Touch ID, Apple Watch or the device password, without a KeyChain entry.
+ * Sets canceled if the user canceled the prompt.
+ */
+bool TouchID::authenticate(const QString& reason, bool& canceled)
+{
+    canceled = false;
+    @try {
+        LAContext* context = [[LAContext alloc] init];
+        dispatch_semaphore_t done = dispatch_semaphore_create(0);
+        __block bool success = false;
+        __block bool userCanceled = false;
+
+        // The reply arrives on a private queue, so waiting here does not deadlock
+        [context evaluatePolicy:LAPolicyDeviceOwnerAuthentication
+                localizedReason:reason.toNSString()
+                          reply:^(BOOL ok, NSError* error) {
+                              success = ok;
+                              userCanceled = error && error.code == LAErrorUserCancel;
+                              if (error) {
+                                  debug("TouchID::authenticate - %s", error.localizedDescription.UTF8String);
+                              }
+                              dispatch_semaphore_signal(done);
+                          }];
+        dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+        dispatch_release(done);
+        [context release];
+
+        canceled = userCanceled;
+        return success;
+    } @catch (NSException*) {
+        return false;
+    }
 }
 
 
@@ -140,6 +179,7 @@ bool TouchID::setKey(const QUuid& dbUuid, const QByteArray& passwordKey, const b
     const QString keyName = databaseKeyName(dbUuid);
 
     deleteKeyEntry(keyName); // Try to delete the existing key entry
+    m_inMemoryKeys.remove(dbUuid);
 
     // prepare adding secure entry to the macOS KeyChain
     CFErrorRef error = NULL;
@@ -212,7 +252,15 @@ bool TouchID::setKey(const QUuid& dbUuid, const QByteArray& passwordKey, const b
 
     CFRelease(sacObject);
     CFRelease(attributes);
-    
+
+    // Builds without an Apple team ID (ad-hoc signed) may not use the data protection KeyChain.
+    // Keep the AES key in memory instead and ask for authentication in getKey, like Polkit does.
+    if (status == errSecMissingEntitlement) {
+        debug("TouchID::setKey - No KeyChain entitlement, keeping the key in memory");
+        m_inMemoryKeys.insert(dbUuid, randomKey + randomIV);
+        status = errSecSuccess;
+    }
+
     // Cleanse the key information from the memory
     Botan::secure_scrub_memory(randomKey.data(), randomKey.size());
     Botan::secure_scrub_memory(randomIV.data(), randomIV.size());
@@ -255,38 +303,49 @@ bool TouchID::getKey(const QUuid& dbUuid, QByteArray& passwordKey)
         return false;
     }
 
-    // query the KeyChain for the AES key
-    CFMutableDictionaryRef query = makeDictionary();
+    const QString touchPrompt =
+        QCoreApplication::translate("DatabaseOpenWidget", "authenticate to access the database");
 
-    const QString keyName = databaseKeyName(dbUuid);
-    NSString* accountName = keyName.toNSString(); // The NSString is released by Qt
-    NSString* touchPromptMessage =
-        QCoreApplication::translate("DatabaseOpenWidget", "authenticate to access the database")
-            .toNSString();  // The NSString is released by Qt
+    QByteArray dataBytes;
+    if (m_inMemoryKeys.contains(dbUuid)) {
+        bool canceled;
+        if (!authenticate(touchPrompt, canceled)) {
+            // return true with empty key if the user canceled the authentication
+            return canceled;
+        }
+        dataBytes = m_inMemoryKeys.value(dbUuid);
+    } else {
+        // query the KeyChain for the AES key
+        CFMutableDictionaryRef query = makeDictionary();
 
-    CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword);
-    CFDictionarySetValue(query, kSecAttrAccount, (__bridge CFStringRef) accountName);
-    CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue);
-    CFDictionarySetValue(query, kSecUseOperationPrompt, (__bridge CFStringRef) touchPromptMessage);
+        const QString keyName = databaseKeyName(dbUuid);
+        NSString* accountName = keyName.toNSString(); // The NSString is released by Qt
+        NSString* touchPromptMessage = touchPrompt.toNSString();  // The NSString is released by Qt
 
-    // get data from the KeyChain
-    CFTypeRef dataTypeRef = NULL;
-    OSStatus status = SecItemCopyMatching(query, &dataTypeRef);
-    CFRelease(query);
+        CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword);
+        CFDictionarySetValue(query, kSecAttrAccount, (__bridge CFStringRef) accountName);
+        CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue);
+        CFDictionarySetValue(query, kSecUseOperationPrompt, (__bridge CFStringRef) touchPromptMessage);
 
-    if (status == errSecUserCanceled) {
-        // user canceled the authentication, return true with empty key
-        debug("TouchID::getKey - User canceled authentication");
-        return true;
-    } else if (status != errSecSuccess || dataTypeRef == NULL) {
-        LogStatusError("TouchID::getKey - key query error", status);
-        return false;
+        // get data from the KeyChain
+        CFTypeRef dataTypeRef = NULL;
+        OSStatus status = SecItemCopyMatching(query, &dataTypeRef);
+        CFRelease(query);
+
+        if (status == errSecUserCanceled) {
+            // user canceled the authentication, return true with empty key
+            debug("TouchID::getKey - User canceled authentication");
+            return true;
+        } else if (status != errSecSuccess || dataTypeRef == NULL) {
+            LogStatusError("TouchID::getKey - key query error", status);
+            return false;
+        }
+
+        CFDataRef valueData = static_cast<CFDataRef>(dataTypeRef);
+        dataBytes = QByteArray::fromHex(QByteArray(reinterpret_cast<const char*>(CFDataGetBytePtr(valueData)),
+                                                   CFDataGetLength(valueData)));
+        CFRelease(dataTypeRef);
     }
-
-    CFDataRef valueData = static_cast<CFDataRef>(dataTypeRef);
-    QByteArray dataBytes = QByteArray::fromHex(QByteArray(reinterpret_cast<const char*>(CFDataGetBytePtr(valueData)),
-                                                          CFDataGetLength(valueData)));
-    CFRelease(dataTypeRef);
 
     // extract AES key and IV from data bytes
     QByteArray key = dataBytes.left(SymmetricCipher::keySize(SymmetricCipher::Aes256_GCM));
@@ -423,5 +482,7 @@ void TouchID::reset(const QUuid& dbUuid)
 {
     if (!dbUuid.isNull()) {
         m_encryptedMasterKeys.remove(dbUuid);
+        QByteArray key = m_inMemoryKeys.take(dbUuid);
+        Botan::secure_scrub_memory(key.data(), key.size());
     }
 }

@@ -187,7 +187,7 @@ jobs:
 
           **Linux x86_64 AppImage**, built on Ubuntu 24.04 (needs Ubuntu 24.04 or newer): \`chmod +x KeePassXC-*.AppImage && ./KeePassXC-*.AppImage\`
 
-          **macOS DMG**: arm64 (Apple Silicon, macOS 14+) and x86_64 (Intel, macOS 15+). The app is not notarized: after copying it to Applications, run \`xattr -dr com.apple.quarantine /Applications/KeePassXC.app\` (or right-click > Open). Touch ID quick unlock is unavailable in this build."
+          **macOS DMG**: arm64 (Apple Silicon, macOS 14+) and x86_64 (Intel, macOS 15+). The app is not notarized: after copying it to Applications, run \`xattr -dr com.apple.quarantine /Applications/KeePassXC.app\` (or right-click > Open). Touch ID quick unlock keeps its key in memory instead of the Keychain, because the app is not signed with an Apple team ID."
 
   deploy-pages:
     if: github.ref_type == 'tag'

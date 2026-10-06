@@ -53,7 +53,7 @@
   <p>Apple Silicon needs macOS 14 or newer, Intel needs macOS 15 or newer. Open the DMG and drag KeePassXC to Applications. This replaces an installed official KeePassXC.</p>
   <p>The app is not notarized, so macOS blocks it on first launch. Allow it once with:</p>
   <pre><code>xattr -dr com.apple.quarantine /Applications/KeePassXC.app</code></pre>
-  <p>or right-click the app and choose <em>Open</em>. Touch ID quick unlock is not available in this build.</p>
+  <p>or right-click the app and choose <em>Open</em>. Touch ID quick unlock works, but because the app is not signed with an Apple team ID, its unlock key is kept in memory instead of the Keychain (as on Linux).</p>
 
   <h2>Connecting to your server</h2>
   <p>Create a new database and choose KeePass Server as its location (<em>Test connection</em> checks the URL and login), or open an existing database from the server. The database then syncs on unlock and save, can work offline, and keeps conflict copies when changes can't be merged.</p>
